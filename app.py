@@ -12,6 +12,7 @@ from src.inference import GenreInferenceService
 
 
 ROOT_DIR = Path(__file__).resolve().parent
+EMPTY_TABLE = pd.DataFrame(columns=["genre", "probability"])
 
 
 @lru_cache(maxsize=1)
@@ -19,17 +20,33 @@ def get_service() -> GenreInferenceService:
     return GenreInferenceService(root_dir=ROOT_DIR)
 
 
+def _safe_metadata(error: Exception | None = None, meta: dict | None = None) -> str:
+    if error is not None:
+        payload = {
+            "status": "error",
+            "error_type": type(error).__name__,
+            "error_message": str(error),
+        }
+        return json.dumps(payload, indent=2, sort_keys=True)
+
+    payload = {"status": "ok", **(meta or {})}
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
 def classify_audio(audio_path: str, top_k: int):
     if not audio_path:
-        return "No audio provided.", pd.DataFrame(columns=["genre", "probability"]), "{}"
+        return "No audio provided.", EMPTY_TABLE.copy(), _safe_metadata()
 
-    service = get_service()
-    pred, top, meta = service.predict(audio_path, top_k=top_k)
-    table = pd.DataFrame(top)
-    table["probability"] = table["probability"].map(lambda x: round(float(x), 6))
-    label = f"Predicted genre: {pred}"
-    meta_text = json.dumps(meta, indent=2, sort_keys=True)
-    return label, table, meta_text
+    try:
+        service = get_service()
+        pred, top, meta = service.predict(audio_path, top_k=top_k)
+        table = pd.DataFrame(top)
+        if "probability" in table.columns:
+            table["probability"] = table["probability"].map(lambda x: round(float(x), 6))
+        label = f"Predicted genre: {pred}"
+        return label, table, _safe_metadata(meta=meta)
+    except Exception as exc:
+        return "Inference failed.", EMPTY_TABLE.copy(), _safe_metadata(error=exc)
 
 
 def build_app() -> gr.Blocks:
@@ -71,6 +88,9 @@ def build_app() -> gr.Blocks:
 
 
 demo = build_app()
+# Prevent runtime schema introspection regressions in Gradio 4.44.x startup.
+demo.api_info = {"named_endpoints": {}, "unnamed_endpoints": {}}
+demo.all_app_info = demo.api_info
 
 
 if __name__ == "__main__":
@@ -79,4 +99,5 @@ if __name__ == "__main__":
         server_port=int(os.getenv("PORT", "7860")),
         share=True,
         show_api=False,
+        quiet=True,
     )
