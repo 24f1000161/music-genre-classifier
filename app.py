@@ -63,6 +63,8 @@ def build_app() -> gr.Blocks:
             fn=classify_audio,
             inputs=[audio_in, top_k],
             outputs=[pred_out, probs_out, meta_out],
+            api_name=False,
+            show_api=False,
         )
 
     return demo
@@ -72,4 +74,9 @@ demo = build_app()
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=int(os.getenv("PORT", "7860")))
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=int(os.getenv("PORT", "7860")),
+        share=True,
+        show_api=False,
+    )

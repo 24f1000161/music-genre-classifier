@@ -26,6 +26,15 @@ Environment variables:
 - `WANDB_MODEL_FILE`: defaults to `resnet50_1hour_best.pth`.
 - `WANDB_MODEL_URL`: optional direct file URL fallback.
 
+UV project workflow:
+- `pyproject.toml` and `uv.lock` are included for uv-based dependency management.
+- Create/sync env locally with `uv sync --python 3.10`.
+- Run app locally with `uv run python app.py`.
+- To refresh lock with newest allowed versions, run `uv lock --upgrade`.
+
+Note: Gradio SDK Spaces still install `requirements.txt` via pip at build time.
+Keep `requirements.txt` aligned with `pyproject.toml` when changing dependencies.
+
 To create/push a Hugging Face Space repo from this folder:
 1. Export a write token: `export HF_TOKEN=...`
 2. Run: `python3 tools/push_to_hf_space.py`
