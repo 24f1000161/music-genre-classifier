@@ -26,6 +26,10 @@ Environment variables:
 - `WANDB_MODEL_FILE`: defaults to `resnet50_1hour_best.pth`.
 - `WANDB_MODEL_URL`: optional direct file URL fallback.
 
+To create/push a Hugging Face Space repo from this folder:
+1. Export a write token: `export HF_TOKEN=...`
+2. Run: `python3 tools/push_to_hf_space.py`
+
 The app performs robust audio genre classification by:
 - resampling audio to the training sample rate
 - creating log-mel spectrogram images that match training preprocessing
