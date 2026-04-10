@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+import gradio as gr
+import pandas as pd
+
+from src.inference import GenreInferenceService
+
+
+ROOT_DIR = Path(__file__).resolve().parent
+
+
+@lru_cache(maxsize=1)
+def get_service() -> GenreInferenceService:
+    return GenreInferenceService(root_dir=ROOT_DIR)
+
+
+def classify_audio(audio_path: str, top_k: int) -> Tuple[str, pd.DataFrame, Dict[str, Any]]:
+    if not audio_path:
+        return "No audio provided.", pd.DataFrame(columns=["genre", "probability"]), {}
+
+    service = get_service()
+    pred, top, meta = service.predict(audio_path, top_k=top_k)
+    table = pd.DataFrame(top)
+    table["probability"] = table["probability"].map(lambda x: round(float(x), 6))
+    label = f"Predicted genre: {pred}"
+    return label, table, meta
+
+
+def build_app() -> gr.Blocks:
+    description = (
+        "Upload an audio file to classify its genre using the best ResNet50 sprint checkpoint "
+        "(W&B run 7w7bs387). The model uses log-mel spectrogram preprocessing and multi-chunk "
+        "probability averaging for robust predictions."
+    )
+
+    with gr.Blocks(title="Music Genre Classifier") as demo:
+        gr.Markdown("# Music Genre Classifier")
+        gr.Markdown(description)
+
+        with gr.Row():
+            audio_in = gr.Audio(type="filepath", label="Input Audio")
+            with gr.Column():
+                top_k = gr.Slider(
+                    minimum=1,
+                    maximum=10,
+                    step=1,
+                    value=5,
+                    label="Top-K predictions",
+                )
+                submit = gr.Button("Classify", variant="primary")
+
+        pred_out = gr.Textbox(label="Prediction")
+        probs_out = gr.Dataframe(headers=["genre", "probability"], label="Top predictions")
+        meta_out = gr.JSON(label="Inference metadata")
+
+        submit.click(
+            fn=classify_audio,
+            inputs=[audio_in, top_k],
+            outputs=[pred_out, probs_out, meta_out],
+        )
+
+    return demo
+
+
+demo = build_app()
+
+
+if __name__ == "__main__":
+    demo.launch()
