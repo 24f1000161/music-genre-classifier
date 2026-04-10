@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Dict, List
+
+import wandb
 
 
 def file_md5(path: Path, chunk_size: int = 1024 * 1024) -> str:
@@ -65,18 +68,50 @@ def assemble_checkpoint_from_parts(
     return output_path
 
 
+def download_checkpoint_from_wandb(
+    output_path: Path,
+    run_path: str,
+    file_name: str,
+) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    api = wandb.Api(timeout=120)
+    run = api.run(run_path)
+    run.file(file_name).download(root=str(output_path.parent), replace=True)
+    if not output_path.exists():
+        raise FileNotFoundError(f"Downloaded checkpoint not found at {output_path}")
+    return output_path
+
+
 def ensure_checkpoint(checkpoints_dir: Path, output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     manifest_path = checkpoints_dir / "manifest.json"
-    manifest = read_manifest(manifest_path)
-    model_filename = manifest["model_filename"]
-    output_path = output_dir / model_filename
+    if manifest_path.exists():
+        manifest = read_manifest(manifest_path)
+        model_filename = manifest["model_filename"]
+        output_path = output_dir / model_filename
 
-    if output_path.exists() and manifest.get("full_md5"):
-        if file_md5(output_path) == manifest["full_md5"]:
-            return output_path
+        if output_path.exists() and manifest.get("full_md5"):
+            if file_md5(output_path) == manifest["full_md5"]:
+                return output_path
 
-    return assemble_checkpoint_from_parts(
-        parts_dir=checkpoints_dir,
+        return assemble_checkpoint_from_parts(
+            parts_dir=checkpoints_dir,
+            output_path=output_path,
+            manifest_path=manifest_path,
+        )
+
+    run_path = os.getenv(
+        "WANDB_RUN_PATH",
+        "24f1000161-dl-genai-project/Messy-Mashup-Cutoff/7w7bs387",
+    )
+    file_name = os.getenv("WANDB_MODEL_FILE", "resnet50_1hour_best.pth")
+    output_path = output_dir / file_name
+    if output_path.exists():
+        return output_path
+
+    return download_checkpoint_from_wandb(
         output_path=output_path,
-        manifest_path=manifest_path,
+        run_path=run_path,
+        file_name=file_name,
     )
