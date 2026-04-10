@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+
+# OS/editor
+.DS_Store
+.vscode/
+
+# Temporary artifacts
+model_artifacts/
+*.log
+
+# Local-only full checkpoint (do not commit direct >100MB file)
+models/resnet50_1hour_best.pth
