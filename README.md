@@ -35,6 +35,10 @@ UV project workflow:
 Note: Gradio SDK Spaces still install `requirements.txt` via pip at build time.
 Keep `requirements.txt` aligned with `pyproject.toml` when changing dependencies.
 
+Compatibility pinning:
+- Keep `fastapi==0.112.2` and `starlette==0.38.6` with Gradio 4.44.x.
+- Newer Starlette 1.x can break Gradio 4.44 template rendering with `TypeError: unhashable type: 'dict'`.
+
 To create/push a Hugging Face Space repo from this folder:
 1. Export a write token: `export HF_TOKEN=...`
 2. Run: `python3 tools/push_to_hf_space.py`

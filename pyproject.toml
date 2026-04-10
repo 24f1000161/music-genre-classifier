@@ -6,6 +6,8 @@ requires-python = ">=3.10,<3.11"
 dependencies = [
   "gradio==4.44.1",
   "huggingface_hub==0.25.2",
+  "fastapi==0.112.2",
+  "starlette==0.38.6",
   "numpy>=1.26.0",
   "pandas>=2.0.0",
   "torch>=2.2.0",
