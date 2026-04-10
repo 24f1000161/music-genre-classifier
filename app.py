@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
 
 import gradio as gr
 import pandas as pd
@@ -18,16 +19,17 @@ def get_service() -> GenreInferenceService:
     return GenreInferenceService(root_dir=ROOT_DIR)
 
 
-def classify_audio(audio_path: str, top_k: int) -> Tuple[str, pd.DataFrame, Dict[str, Any]]:
+def classify_audio(audio_path: str, top_k: int):
     if not audio_path:
-        return "No audio provided.", pd.DataFrame(columns=["genre", "probability"]), {}
+        return "No audio provided.", pd.DataFrame(columns=["genre", "probability"]), "{}"
 
     service = get_service()
     pred, top, meta = service.predict(audio_path, top_k=top_k)
     table = pd.DataFrame(top)
     table["probability"] = table["probability"].map(lambda x: round(float(x), 6))
     label = f"Predicted genre: {pred}"
-    return label, table, meta
+    meta_text = json.dumps(meta, indent=2, sort_keys=True)
+    return label, table, meta_text
 
 
 def build_app() -> gr.Blocks:
@@ -55,7 +57,7 @@ def build_app() -> gr.Blocks:
 
         pred_out = gr.Textbox(label="Prediction")
         probs_out = gr.Dataframe(headers=["genre", "probability"], label="Top predictions")
-        meta_out = gr.JSON(label="Inference metadata")
+        meta_out = gr.Textbox(label="Inference metadata", lines=10)
 
         submit.click(
             fn=classify_audio,
@@ -70,4 +72,4 @@ demo = build_app()
 
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(server_name="0.0.0.0", server_port=int(os.getenv("PORT", "7860")))
