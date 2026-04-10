@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 from typing import Dict, List
+from urllib.request import urlretrieve
 
 import wandb
 
@@ -74,9 +75,17 @@ def download_checkpoint_from_wandb(
     file_name: str,
 ) -> Path:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    api = wandb.Api(timeout=120)
-    run = api.run(run_path)
-    run.file(file_name).download(root=str(output_path.parent), replace=True)
+    try:
+        api = wandb.Api(timeout=120)
+        run = api.run(run_path)
+        run.file(file_name).download(root=str(output_path.parent), replace=True)
+    except Exception as exc:
+        direct_url = os.getenv("WANDB_MODEL_URL", "").strip()
+        if not direct_url:
+            raise RuntimeError(
+                "W&B API download failed and WANDB_MODEL_URL is not set"
+            ) from exc
+        urlretrieve(direct_url, str(output_path))
     if not output_path.exists():
         raise FileNotFoundError(f"Downloaded checkpoint not found at {output_path}")
     return output_path
