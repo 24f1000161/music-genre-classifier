@@ -1,0 +1,2 @@
+models/*.pth filter=lfs diff=lfs merge=lfs -text
+checkpoints/*.pth.part* filter=lfs diff=lfs merge=lfs -text
