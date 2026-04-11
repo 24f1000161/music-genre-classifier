@@ -8,20 +8,31 @@ import numpy as np
 import torch
 
 from .audio import build_mel_frontend, create_eval_chunks, load_waveform_mono, wave_to_image
+from .checkpoint import ensure_checkpoint
 from .config import DEFAULT_GENRES, InferenceConfig
 from .model import load_model_from_checkpoint
+
+
+def _safe_torch_load(path: Path):
+    try:
+        return torch.load(path, map_location="cpu", weights_only=False)
+    except TypeError:
+        return torch.load(path, map_location="cpu")
 
 
 class GenreInferenceService:
     def __init__(self, root_dir: Path):
         self.root_dir = root_dir
+        self.checkpoints_dir = root_dir / "checkpoints"
         self.models_dir = root_dir / "models"
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        checkpoint_path = self.models_dir / "resnet50_1hour_best.pth"
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        checkpoint_path = ensure_checkpoint(self.checkpoints_dir, self.models_dir)
+        checkpoint = _safe_torch_load(checkpoint_path)
 
         ckpt_cfg = checkpoint.get("cfg", {}) if isinstance(checkpoint, dict) else {}
+        if not isinstance(ckpt_cfg, dict):
+            ckpt_cfg = {}
         self.cfg = self._build_cfg(ckpt_cfg)
 
         genres = checkpoint.get("genres") if isinstance(checkpoint, dict) else None
@@ -82,8 +93,10 @@ class GenreInferenceService:
         target_samples = int(self.cfg.sr * self.cfg.duration)
 
         tta_probs: List[np.ndarray] = []
+        num_chunks = 0
         for variant in self._build_tta_variants(waveform):
             chunks = create_eval_chunks(variant, target_samples=target_samples)
+            num_chunks = max(num_chunks, len(chunks))
             tta_probs.append(self._predict_pass(chunks))
 
         probs = np.stack(tta_probs, axis=0).mean(axis=0)
@@ -92,7 +105,7 @@ class GenreInferenceService:
         pred_idx = int(np.argmax(probs))
         pred_genre = self.genres[pred_idx]
 
-        k = max(1, min(top_k, len(self.genres)))
+        k = max(1, min(int(top_k), len(self.genres)))
         top_indices = np.argsort(-probs)[:k]
         top = [
             {"genre": self.genres[int(i)], "probability": float(probs[int(i)])}
@@ -103,7 +116,8 @@ class GenreInferenceService:
             "sample_rate": self.cfg.sr,
             "duration_sec": self.cfg.duration,
             "tta_passes": self.cfg.tta_passes,
-            "num_chunks": len(create_eval_chunks(waveform, target_samples=target_samples)),
+            "num_chunks": num_chunks,
             "device": str(self.device),
+            "checkpoint_source": "local",
         }
         return pred_genre, top, meta
