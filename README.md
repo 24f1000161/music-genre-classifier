@@ -18,13 +18,11 @@ This Space deploys the best checkpoint from W&B run 7w7bs387:
 
 Runtime model loading behavior:
 - If `checkpoints/manifest.json` exists, the app reconstructs the model from local parts.
-- Otherwise, it downloads `resnet50_1hour_best.pth` from W&B on first startup.
+- Otherwise, it expects `models/resnet50_1hour_best.pth` or `LOCAL_CHECKPOINT_PATH`.
+- No runtime W&B/model download is used.
 
 Environment variables:
-- `WANDB_API_KEY`: optional if the run/file is private.
-- `WANDB_RUN_PATH`: defaults to `24f1000161-dl-genai-project/Messy-Mashup-Cutoff/7w7bs387`.
-- `WANDB_MODEL_FILE`: defaults to `resnet50_1hour_best.pth`.
-- `WANDB_MODEL_URL`: optional direct file URL fallback.
+- `LOCAL_CHECKPOINT_PATH`: optional absolute or relative path to a local `.pth` file.
 
 UV project workflow:
 - `pyproject.toml` and `uv.lock` are included for uv-based dependency management.
