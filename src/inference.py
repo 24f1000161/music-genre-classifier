@@ -19,7 +19,7 @@ class GenreInferenceService:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         checkpoint_path = self.models_dir / "resnet50_1hour_best.pth"
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
 
         ckpt_cfg = checkpoint.get("cfg", {}) if isinstance(checkpoint, dict) else {}
         self.cfg = self._build_cfg(ckpt_cfg)
