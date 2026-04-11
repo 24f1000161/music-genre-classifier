@@ -13,3 +13,5 @@ __pycache__/
 model_artifacts/
 *.log
 
+# Local-only full checkpoint (do not commit direct >100MB file)
+models/resnet50_1hour_best.pth

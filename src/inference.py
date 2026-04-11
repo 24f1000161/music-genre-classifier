@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from .audio import build_mel_frontend, create_eval_chunks, load_waveform_mono, wave_to_image
+from .checkpoint import ensure_checkpoint
 from .config import DEFAULT_GENRES, InferenceConfig
 from .model import load_model_from_checkpoint
 
@@ -15,10 +16,11 @@ from .model import load_model_from_checkpoint
 class GenreInferenceService:
     def __init__(self, root_dir: Path):
         self.root_dir = root_dir
+        self.checkpoints_dir = root_dir / "checkpoints"
         self.models_dir = root_dir / "models"
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        checkpoint_path = self.models_dir / "resnet50_1hour_best.pth"
+        checkpoint_path = ensure_checkpoint(self.checkpoints_dir, self.models_dir)
         checkpoint = torch.load(checkpoint_path, map_location="cpu")
 
         ckpt_cfg = checkpoint.get("cfg", {}) if isinstance(checkpoint, dict) else {}
