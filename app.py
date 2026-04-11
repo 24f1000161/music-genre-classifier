@@ -152,6 +152,25 @@ def _safe_metadata(error: Exception | None = None, meta: dict | None = None) -> 
     return json.dumps(payload, indent=2, sort_keys=True)
 
 
+def _normalize_audio_path(audio_input) -> str:
+    if audio_input is None:
+        return ""
+
+    if isinstance(audio_input, str):
+        return audio_input
+
+    if isinstance(audio_input, list):
+        if not audio_input:
+            return ""
+        first = audio_input[0]
+        return str(first) if first is not None else ""
+
+    if hasattr(audio_input, "name"):
+        return str(audio_input.name)
+
+    return str(audio_input)
+
+
 def _confidence_summary(table: pd.DataFrame) -> str:
     if table.empty or "probability" not in table.columns:
         return "Confidence: unavailable"
@@ -175,7 +194,8 @@ def _confidence_summary(table: pd.DataFrame) -> str:
     )
 
 
-def classify_audio(audio_path: str, top_k: int, tta_passes: int):
+def classify_audio(audio_path, top_k: int, tta_passes: int):
+    audio_path = _normalize_audio_path(audio_path)
     if not audio_path:
         return (
             "Please upload an audio file.",
@@ -229,7 +249,7 @@ def build_app() -> gr.Blocks:
                   <p class='hero-subtitle'>
                     Production-grade audio inference for genre recognition.
                     The model evaluates mel-spectrogram chunks and aggregates
-                                        probabilities for stable predictions across multiple TTA passes.
+                    probabilities for stable predictions across multiple TTA passes.
                   </p>
                 </section>
                 """
@@ -238,7 +258,17 @@ def build_app() -> gr.Blocks:
 
             with gr.Row():
                 with gr.Column(elem_classes=["panel"], scale=7):
-                    audio_in = gr.Audio(type="filepath", label="Input audio")
+                    audio_in = gr.File(
+                        label="Upload audio file",
+                        file_types=["audio"],
+                        type="filepath",
+                    )
+                    audio_preview = gr.Audio(
+                        type="filepath",
+                        label="Audio preview",
+                        interactive=False,
+                        show_download_button=False,
+                    )
                 with gr.Column(elem_classes=["panel"], scale=5):
                     top_k = gr.Slider(
                         minimum=1,
@@ -276,6 +306,14 @@ def build_app() -> gr.Blocks:
             )
             meta_out = gr.Code(label="Inference metadata", language="json")
 
+            audio_in.change(
+                fn=lambda p: _normalize_audio_path(p) or None,
+                inputs=[audio_in],
+                outputs=[audio_preview],
+                api_name=False,
+                show_api=False,
+            )
+
             submit.click(
                 fn=classify_audio,
                 inputs=[audio_in, top_k, tta_passes],
@@ -287,6 +325,7 @@ def build_app() -> gr.Blocks:
             clear.click(
                 fn=lambda: (
                     None,
+                    None,
                     5,
                     10,
                     "",
@@ -296,7 +335,7 @@ def build_app() -> gr.Blocks:
                     _safe_metadata(),
                 ),
                 inputs=None,
-                outputs=[audio_in, top_k, tta_passes, pred_out, confidence_out, probs_out, chart_out, meta_out],
+                outputs=[audio_in, audio_preview, top_k, tta_passes, pred_out, confidence_out, probs_out, chart_out, meta_out],
                 api_name=False,
                 show_api=False,
             )
