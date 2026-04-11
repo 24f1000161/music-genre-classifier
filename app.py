@@ -15,26 +15,55 @@ ROOT_DIR = Path(__file__).resolve().parent
 EMPTY_TABLE = pd.DataFrame(columns=["genre", "probability"])
 APP_CSS = """
 :root {
-    --surface-0: #f4f6f8;
+    --bg-0: #eef2f7;
+    --bg-1: #f7fafc;
     --surface-1: #ffffff;
-    --ink-0: #111827;
-    --ink-1: #4b5563;
-    --line: #d1d5db;
+    --surface-2: #f8fafc;
+    --ink-0: #0f172a;
+    --ink-1: #334155;
+    --line: #cbd5e1;
     --accent: #0f766e;
+    --accent-soft: rgba(15, 118, 110, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-0: #0b1220;
+        --bg-1: #101a2e;
+        --surface-1: #111c31;
+        --surface-2: #16233d;
+        --ink-0: #e2e8f0;
+        --ink-1: #cbd5e1;
+        --line: #24324d;
+        --accent: #2dd4bf;
+        --accent-soft: rgba(45, 212, 191, 0.16);
+    }
+}
+
+[data-theme="dark"] {
+    --bg-0: #0b1220;
+    --bg-1: #101a2e;
+    --surface-1: #111c31;
+    --surface-2: #16233d;
+    --ink-0: #e2e8f0;
+    --ink-1: #cbd5e1;
+    --line: #24324d;
+    --accent: #2dd4bf;
+    --accent-soft: rgba(45, 212, 191, 0.16);
 }
 
 .gradio-container {
     background:
-        radial-gradient(circle at 12% 18%, rgba(15, 118, 110, 0.14), transparent 36%),
-        radial-gradient(circle at 88% 2%, rgba(59, 130, 246, 0.12), transparent 34%),
-        linear-gradient(140deg, #f8fafc 0%, #edf2f7 100%);
+        radial-gradient(circle at 14% 18%, var(--accent-soft), transparent 36%),
+        radial-gradient(circle at 88% 4%, rgba(59, 130, 246, 0.16), transparent 34%),
+        linear-gradient(145deg, var(--bg-1) 0%, var(--bg-0) 100%);
     color: var(--ink-0);
 }
 
 .app-shell {
-    max-width: 1080px;
+    max-width: 1120px;
     margin: 0 auto;
-    padding: 20px 6px 28px 6px;
+    padding: 22px 8px 30px 8px;
 }
 
 .hero-card {
@@ -49,7 +78,8 @@ APP_CSS = """
     margin: 0;
     font-size: 2rem;
     font-weight: 700;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.1px;
+    color: var(--ink-0);
 }
 
 .hero-subtitle {
@@ -59,16 +89,44 @@ APP_CSS = """
 }
 
 .panel {
-    background: var(--surface-1);
+    background: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: 16px;
     padding: 14px;
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
 }
 
+.gr-block,
+.gr-box,
+.gr-form,
+.gr-group,
+.gr-dataframe,
+.gr-code,
+.gr-textbox,
+.gr-audio {
+    background: var(--surface-1) !important;
+    border-color: var(--line) !important;
+    color: var(--ink-0) !important;
+}
+
+.gr-markdown,
+.gr-markdown p,
+.gr-markdown li,
+.gr-label {
+    color: var(--ink-1) !important;
+}
+
+.gr-dataframe table,
+.gr-dataframe th,
+.gr-dataframe td {
+    color: var(--ink-0) !important;
+    background: var(--surface-1) !important;
+}
+
 .gr-button-primary {
     background: var(--accent) !important;
     border-color: var(--accent) !important;
+    color: #052e2b !important;
 }
 """
 
@@ -109,7 +167,10 @@ def classify_audio(audio_path: str, top_k: int):
 
 
 def build_app() -> gr.Blocks:
-    description = "Upload an audio file and receive calibrated top-k genre probabilities from the production ResNet50 checkpoint."
+    description = (
+        "Upload an audio file and receive calibrated top-k genre probabilities from the production "
+        "ResNet50 checkpoint. Inference runs with a stronger multi-pass TTA ensemble for improved stability."
+    )
 
     with gr.Blocks(title="Music Genre Classifier", css=APP_CSS) as demo:
         with gr.Column(elem_classes=["app-shell"]):
@@ -120,7 +181,7 @@ def build_app() -> gr.Blocks:
                   <p class='hero-subtitle'>
                     Production-grade audio inference for genre recognition.
                     The model evaluates mel-spectrogram chunks and aggregates
-                    probabilities for stable predictions.
+                                        probabilities for stable predictions across multiple TTA passes.
                   </p>
                 </section>
                 """

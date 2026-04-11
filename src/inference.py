@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import os
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -60,6 +61,17 @@ class GenreInferenceService:
         for key in merged:
             if key in raw_cfg and raw_cfg[key] is not None:
                 merged[key] = raw_cfg[key]
+
+        env_tta = os.getenv("INFERENCE_TTA_PASSES", "").strip()
+        if env_tta:
+            try:
+                merged["tta_passes"] = max(1, int(env_tta))
+            except ValueError:
+                pass
+        else:
+            # Keep a stronger baseline even when older checkpoints contain lower TTA values.
+            merged["tta_passes"] = max(10, int(merged.get("tta_passes", 10)))
+
         return InferenceConfig(**merged)
 
     @torch.no_grad()

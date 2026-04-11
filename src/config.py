@@ -28,5 +28,5 @@ class InferenceConfig:
     fmin: int = 20
     fmax: int = 11025
     val_bs: int = 16
-    tta_passes: int = 2
+    tta_passes: int = 10
 

@@ -9,45 +9,87 @@ app_file: app.py
 pinned: false
 ---
 
-# Music Genre Classifier (ResNet50 Sprint)
+# Music Genre Classifier
 
-This Space deploys the best checkpoint from W&B run 7w7bs387:
-- File: resnet50_1hour_best.pth
-- Notebook lineage: resnet50_1hour_sprint
-- Reported best validation macro-F1: approximately 0.89
+Production-grade music genre classification web app powered by a ResNet50 checkpoint.
 
-Runtime model loading behavior:
-- If `checkpoints/manifest.json` exists, the app reconstructs the model from local parts.
-- Otherwise, it expects `models/resnet50_1hour_best.pth` or `LOCAL_CHECKPOINT_PATH`.
-- No runtime W&B/model download is used.
+## Live Deployment
 
-Environment variables:
-- `LOCAL_CHECKPOINT_PATH`: optional absolute or relative path to a local `.pth` file.
+- Hugging Face Space: https://huggingface.co/spaces/iamdivyam/GENRES-OF-MUSIC
 
-UV project workflow:
-- `pyproject.toml` and `uv.lock` are included for uv-based dependency management.
-- Create/sync env locally with `uv sync --python 3.10`.
-- Run app locally with `uv run python app.py`.
-- To refresh lock with newest allowed versions, run `uv lock --upgrade`.
+## Overview
 
-Note: Gradio SDK Spaces still install `requirements.txt` via pip at build time.
-Keep `requirements.txt` aligned with `pyproject.toml` when changing dependencies.
+This application predicts genre labels from uploaded audio using a robust inference pipeline:
 
-Compatibility pinning:
-- Keep `fastapi==0.112.2` and `starlette==0.38.6` with Gradio 4.44.x.
-- Newer Starlette 1.x can break Gradio 4.44 template rendering with `TypeError: unhashable type: 'dict'`.
+- log-mel spectrogram image conversion
+- chunked evaluation over long audio
+- multi-pass test-time augmentation (TTA) ensembling
 
-To create/push a Hugging Face Space repo from this folder:
-1. Export a write token: `export HF_TOKEN=...`
-2. Run: `python3 tools/push_to_hf_space.py`
+The deployed model originates from the best checkpoint of W&B run `7w7bs387`.
 
-The app performs robust audio genre classification by:
-- resampling audio to the training sample rate
-- creating log-mel spectrogram images that match training preprocessing
-- averaging probabilities across multiple audio chunks
+## Reliability Tooling
 
-Audio decode reliability:
-- Primary decode path uses system `ffmpeg` to avoid torchaudio's torchcodec-only loader path.
-- If `ffmpeg` decode fails, the app falls back to explicit legacy torchaudio backends.
-- No direct `torchcodec` dependency is required for normal inference.
+This project introduces an **Audio Reliability Layer** for decoding stability across environments:
+
+- primary decoder: system `ffmpeg`
+- fallback decoder: explicit torchaudio legacy backends (`soundfile`, `ffmpeg`, `sox_io`)
+- avoids default torchaudio loader paths that can fail with TorchCodec-only setups
+
+Result: more stable behavior in containerized deployments (including Hugging Face Spaces).
+
+## Model Loading Strategy
+
+- If `checkpoints/manifest.json` exists, the model can be assembled from local parts.
+- Otherwise, inference uses `models/resnet50_1hour_best.pth`.
+- Optional override via `LOCAL_CHECKPOINT_PATH`.
+- No runtime download from W&B is required.
+
+## Inference Quality Configuration
+
+Default TTA is intentionally stronger for public inference:
+
+- baseline: **10 passes**
+- optional higher setting: **15 passes**
+
+Use environment variable override:
+
+```bash
+export INFERENCE_TTA_PASSES=15
+```
+
+## Local Development
+
+### Option A: pip
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+### Option B: uv
+
+```bash
+uv sync --python 3.10
+uv run python app.py
+```
+
+## Environment Variables
+
+- `LOCAL_CHECKPOINT_PATH`: optional path to a local `.pth` checkpoint.
+- `INFERENCE_TTA_PASSES`: optional override for TTA pass count (for example `10` or `15`).
+
+## Compatibility Notes
+
+- `gradio==4.44.1`
+- `fastapi==0.112.2`
+- `starlette==0.38.6`
+
+These pins are intentional to avoid known runtime incompatibilities with Gradio 4.44.x.
+
+## Deployment Notes
+
+The Space uses Gradio SDK with `requirements.txt` installation during build.
+Keep `requirements.txt` and `pyproject.toml` aligned whenever dependencies are changed.
 
