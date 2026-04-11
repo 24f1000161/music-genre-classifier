@@ -27,6 +27,15 @@ This application predicts genre labels from uploaded audio using a robust infere
 
 The deployed model originates from the best checkpoint of W&B run `7w7bs387`.
 
+## Product Features
+
+- Dark-mode-safe and light-mode-safe interface
+- Upload-and-predict workflow with ranked top-k classes
+- Configurable TTA slider directly in the UI (10 to 15 passes)
+- Confidence summary for each prediction
+- Probability profile chart for quick interpretation
+- Detailed inference metadata (latency, TTA settings, device)
+
 ## Reliability Tooling
 
 This project introduces an **Audio Reliability Layer** for decoding stability across environments:
@@ -56,6 +65,8 @@ Use environment variable override:
 ```bash
 export INFERENCE_TTA_PASSES=15
 ```
+
+At runtime, users can also set TTA from the app UI using the **TTA passes** slider.
 
 ## Local Development
 

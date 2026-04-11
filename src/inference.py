@@ -89,9 +89,9 @@ class GenreInferenceService:
         pass_probs = np.concatenate(probs_all, axis=0)
         return pass_probs.mean(axis=0)
 
-    def _build_tta_variants(self, waveform: torch.Tensor) -> List[torch.Tensor]:
+    def _build_tta_variants(self, waveform: torch.Tensor, tta_passes: int) -> List[torch.Tensor]:
         variants = [waveform]
-        tta = max(1, int(self.cfg.tta_passes))
+        tta = max(1, int(tta_passes))
         if tta <= 1:
             return variants
 
@@ -100,13 +100,20 @@ class GenreInferenceService:
             variants.append(torch.roll(waveform, shifts=i * shift, dims=1))
         return variants
 
-    def predict(self, audio_path: str, top_k: int = 5) -> Tuple[str, List[Dict[str, float]], Dict]:
+    def predict(
+        self,
+        audio_path: str,
+        top_k: int = 5,
+        tta_passes: int | None = None,
+    ) -> Tuple[str, List[Dict[str, float]], Dict]:
         waveform = load_waveform_mono(audio_path, target_sr=self.cfg.sr)
         target_samples = int(self.cfg.sr * self.cfg.duration)
 
+        resolved_tta = max(1, int(tta_passes)) if tta_passes is not None else int(self.cfg.tta_passes)
+
         tta_probs: List[np.ndarray] = []
         num_chunks = 0
-        for variant in self._build_tta_variants(waveform):
+        for variant in self._build_tta_variants(waveform, resolved_tta):
             chunks = create_eval_chunks(variant, target_samples=target_samples)
             num_chunks = max(num_chunks, len(chunks))
             tta_probs.append(self._predict_pass(chunks))
@@ -127,7 +134,7 @@ class GenreInferenceService:
         meta = {
             "sample_rate": self.cfg.sr,
             "duration_sec": self.cfg.duration,
-            "tta_passes": self.cfg.tta_passes,
+            "tta_passes": resolved_tta,
             "num_chunks": num_chunks,
             "device": str(self.device),
             "checkpoint_source": "local",

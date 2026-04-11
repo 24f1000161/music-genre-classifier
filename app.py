@@ -4,6 +4,7 @@ import json
 import os
 from functools import lru_cache
 from pathlib import Path
+import time
 
 import gradio as gr
 import pandas as pd
@@ -13,6 +14,7 @@ from src.inference import GenreInferenceService
 
 ROOT_DIR = Path(__file__).resolve().parent
 EMPTY_TABLE = pd.DataFrame(columns=["genre", "probability"])
+EMPTY_CHART = pd.DataFrame({"genre": [], "probability": []})
 APP_CSS = """
 :root {
     --bg-0: #eef2f7;
@@ -101,6 +103,7 @@ APP_CSS = """
 .gr-form,
 .gr-group,
 .gr-dataframe,
+.gr-plot,
 .gr-code,
 .gr-textbox,
 .gr-audio {
@@ -149,27 +152,72 @@ def _safe_metadata(error: Exception | None = None, meta: dict | None = None) -> 
     return json.dumps(payload, indent=2, sort_keys=True)
 
 
-def classify_audio(audio_path: str, top_k: int):
+def _confidence_summary(table: pd.DataFrame) -> str:
+    if table.empty or "probability" not in table.columns:
+        return "Confidence: unavailable"
+
+    probs = table["probability"].astype(float).tolist()
+    top1 = probs[0]
+    top2 = probs[1] if len(probs) > 1 else 0.0
+    margin = top1 - top2
+
+    if top1 >= 0.75 and margin >= 0.30:
+        level = "High"
+    elif top1 >= 0.50 and margin >= 0.15:
+        level = "Medium"
+    else:
+        level = "Low"
+
+    return (
+        f"Confidence: {level} | "
+        f"Top-1 probability: {top1:.3f} | "
+        f"Margin vs Top-2: {margin:.3f}"
+    )
+
+
+def classify_audio(audio_path: str, top_k: int, tta_passes: int):
     if not audio_path:
-        return "Please upload an audio file.", EMPTY_TABLE.copy(), _safe_metadata()
+        return (
+            "Please upload an audio file.",
+            "Confidence: unavailable",
+            EMPTY_TABLE.copy(),
+            EMPTY_CHART.copy(),
+            _safe_metadata(),
+        )
 
     try:
         top_k = max(1, min(int(top_k), 10))
+        tta_passes = max(1, min(int(tta_passes), 32))
+        start = time.perf_counter()
         service = get_service()
-        pred, top, meta = service.predict(audio_path, top_k=top_k)
+        pred, top, meta = service.predict(audio_path, top_k=top_k, tta_passes=tta_passes)
+        latency_ms = round((time.perf_counter() - start) * 1000.0, 2)
+
         table = pd.DataFrame(top)
         if "probability" in table.columns:
             table["probability"] = table["probability"].map(lambda x: round(float(x), 6))
+        chart = table[["genre", "probability"]].copy() if not table.empty else EMPTY_CHART.copy()
+
+        meta["latency_ms"] = latency_ms
+        meta["requested_top_k"] = top_k
+        meta["requested_tta_passes"] = tta_passes
+
         label = f"Predicted genre: {pred}"
-        return label, table, _safe_metadata(meta=meta)
+        return label, _confidence_summary(table), table, chart, _safe_metadata(meta=meta)
     except Exception as exc:
-        return "Inference failed.", EMPTY_TABLE.copy(), _safe_metadata(error=exc)
+        return (
+            "Inference failed.",
+            "Confidence: unavailable",
+            EMPTY_TABLE.copy(),
+            EMPTY_CHART.copy(),
+            _safe_metadata(error=exc),
+        )
 
 
 def build_app() -> gr.Blocks:
     description = (
         "Upload an audio file and receive calibrated top-k genre probabilities from the production "
-        "ResNet50 checkpoint. Inference runs with a stronger multi-pass TTA ensemble for improved stability."
+        "ResNet50 checkpoint. Configure TTA (10-15) for stronger and more stable predictions."
     )
 
     with gr.Blocks(title="Music Genre Classifier", css=APP_CSS) as demo:
@@ -199,31 +247,56 @@ def build_app() -> gr.Blocks:
                         value=5,
                         label="Top-k predictions",
                     )
+                    tta_passes = gr.Slider(
+                        minimum=10,
+                        maximum=15,
+                        step=1,
+                        value=10,
+                        label="TTA passes",
+                        info="Higher values increase robustness but take longer.",
+                    )
                     with gr.Row():
                         submit = gr.Button("Run inference", variant="primary")
                         clear = gr.Button("Clear", variant="secondary")
 
             pred_out = gr.Textbox(label="Predicted genre")
+            confidence_out = gr.Textbox(label="Confidence summary")
             probs_out = gr.Dataframe(
                 headers=["genre", "probability"],
                 datatype=["str", "number"],
                 interactive=False,
                 label="Ranked probabilities",
             )
+            chart_out = gr.BarPlot(
+                x="genre",
+                y="probability",
+                title="Top-k probability profile",
+                y_lim=[0, 1],
+                height=320,
+            )
             meta_out = gr.Code(label="Inference metadata", language="json")
 
             submit.click(
                 fn=classify_audio,
-                inputs=[audio_in, top_k],
-                outputs=[pred_out, probs_out, meta_out],
+                inputs=[audio_in, top_k, tta_passes],
+                outputs=[pred_out, confidence_out, probs_out, chart_out, meta_out],
                 api_name=False,
                 show_api=False,
             )
 
             clear.click(
-                fn=lambda: (None, 5, "", EMPTY_TABLE.copy(), _safe_metadata()),
+                fn=lambda: (
+                    None,
+                    5,
+                    10,
+                    "",
+                    "Confidence: unavailable",
+                    EMPTY_TABLE.copy(),
+                    EMPTY_CHART.copy(),
+                    _safe_metadata(),
+                ),
                 inputs=None,
-                outputs=[audio_in, top_k, pred_out, probs_out, meta_out],
+                outputs=[audio_in, top_k, tta_passes, pred_out, confidence_out, probs_out, chart_out, meta_out],
                 api_name=False,
                 show_api=False,
             )
