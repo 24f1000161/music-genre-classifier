@@ -46,3 +46,8 @@ The app performs robust audio genre classification by:
 - creating log-mel spectrogram images that match training preprocessing
 - averaging probabilities across multiple audio chunks
 
+Audio decode reliability:
+- Primary decode path uses system `ffmpeg` to avoid torchaudio's torchcodec-only loader path.
+- If `ffmpeg` decode fails, the app falls back to explicit legacy torchaudio backends.
+- No direct `torchcodec` dependency is required for normal inference.
+
