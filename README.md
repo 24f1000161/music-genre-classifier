@@ -33,7 +33,6 @@ The deployed model originates from the best checkpoint of W&B run `7w7bs387`.
 - Upload-and-predict workflow with ranked top-k classes
 - Configurable TTA slider directly in the UI (10 to 15 passes)
 - Confidence summary for each prediction
-- Probability profile chart for quick interpretation
 - Detailed inference metadata (latency, TTA settings, device)
 
 ## Reliability Tooling

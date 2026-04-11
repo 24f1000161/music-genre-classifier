@@ -14,7 +14,6 @@ from src.inference import GenreInferenceService
 
 ROOT_DIR = Path(__file__).resolve().parent
 EMPTY_TABLE = pd.DataFrame(columns=["genre", "probability"])
-EMPTY_CHART = pd.DataFrame({"genre": [], "probability": []})
 APP_CSS = """
 :root {
     --bg-0: #eef2f7;
@@ -103,7 +102,6 @@ APP_CSS = """
 .gr-form,
 .gr-group,
 .gr-dataframe,
-.gr-plot,
 .gr-code,
 .gr-textbox,
 .gr-audio {
@@ -201,7 +199,6 @@ def classify_audio(audio_path, top_k: int, tta_passes: int):
             "Please upload an audio file.",
             "Confidence: unavailable",
             EMPTY_TABLE.copy(),
-            EMPTY_CHART.copy(),
             _safe_metadata(),
         )
 
@@ -216,20 +213,18 @@ def classify_audio(audio_path, top_k: int, tta_passes: int):
         table = pd.DataFrame(top)
         if "probability" in table.columns:
             table["probability"] = table["probability"].map(lambda x: round(float(x), 6))
-        chart = table[["genre", "probability"]].copy() if not table.empty else EMPTY_CHART.copy()
 
         meta["latency_ms"] = latency_ms
         meta["requested_top_k"] = top_k
         meta["requested_tta_passes"] = tta_passes
 
         label = f"Predicted genre: {pred}"
-        return label, _confidence_summary(table), table, chart, _safe_metadata(meta=meta)
+        return label, _confidence_summary(table), table, _safe_metadata(meta=meta)
     except Exception as exc:
         return (
             "Inference failed.",
             "Confidence: unavailable",
             EMPTY_TABLE.copy(),
-            EMPTY_CHART.copy(),
             _safe_metadata(error=exc),
         )
 
@@ -259,9 +254,9 @@ def build_app() -> gr.Blocks:
             with gr.Row():
                 with gr.Column(elem_classes=["panel"], scale=7):
                     audio_in = gr.Audio(
+                        label="Upload audio file",
                         sources=["upload"],
                         type="filepath",
-                        label="Upload audio",
                     )
                 with gr.Column(elem_classes=["panel"], scale=5):
                     top_k = gr.Slider(
@@ -291,19 +286,12 @@ def build_app() -> gr.Blocks:
                 interactive=False,
                 label="Ranked probabilities",
             )
-            chart_out = gr.BarPlot(
-                x="genre",
-                y="probability",
-                title="Top-k probability profile",
-                y_lim=[0, 1],
-                height=320,
-            )
             meta_out = gr.Code(label="Inference metadata", language="json")
 
             submit.click(
                 fn=classify_audio,
                 inputs=[audio_in, top_k, tta_passes],
-                outputs=[pred_out, confidence_out, probs_out, chart_out, meta_out],
+                outputs=[pred_out, confidence_out, probs_out, meta_out],
                 api_name=False,
                 show_api=False,
             )
@@ -316,11 +304,10 @@ def build_app() -> gr.Blocks:
                     "",
                     "Confidence: unavailable",
                     EMPTY_TABLE.copy(),
-                    EMPTY_CHART.copy(),
                     _safe_metadata(),
                 ),
                 inputs=None,
-                outputs=[audio_in, top_k, tta_passes, pred_out, confidence_out, probs_out, chart_out, meta_out],
+                outputs=[audio_in, top_k, tta_passes, pred_out, confidence_out, probs_out, meta_out],
                 api_name=False,
                 show_api=False,
             )
@@ -329,6 +316,9 @@ def build_app() -> gr.Blocks:
 
 
 demo = build_app()
+# Prevent runtime schema introspection regressions in Gradio 4.44.x startup.
+demo.api_info = {"named_endpoints": {}, "unnamed_endpoints": {}}
+demo.all_app_info = demo.api_info
 
 
 if __name__ == "__main__":
