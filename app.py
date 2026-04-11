@@ -53,12 +53,14 @@ def build_app() -> gr.Blocks:
     description = (
         "Upload an audio file to classify its genre using the best ResNet50 sprint checkpoint "
         "(W&B run 7w7bs387). The model uses log-mel spectrogram preprocessing and multi-chunk "
-        "probability averaging for robust predictions."
+        "probability averaging for robust predictions. <br><br>"
+        "🏆 **Performance:** Achieved **0.89** validation accuracy and **0.93** testing accuracy "
+        "in the Kaggle competition!"
     )
 
-    with gr.Blocks(title="Music Genre Classifier") as demo:
-        gr.Markdown("# Music Genre Classifier")
-        gr.Markdown(description)
+    with gr.Blocks(title="Music Genre Classifier", theme=gr.themes.Soft()) as demo:
+        gr.Markdown("<h1 style='text-align: center;'>🎵 Music Genre Classifier 🎧</h1>")
+        gr.Markdown(f"<p style='text-align: center; font-size: 1.1em;'>{description}</p>")
 
         with gr.Row():
             audio_in = gr.Audio(type="filepath", label="Input Audio")
@@ -70,11 +72,12 @@ def build_app() -> gr.Blocks:
                     value=5,
                     label="Top-K predictions",
                 )
-                submit = gr.Button("Classify", variant="primary")
+                submit = gr.Button("Classify", variant="primary", size="lg")
 
-        pred_out = gr.Textbox(label="Prediction")
-        probs_out = gr.Dataframe(headers=["genre", "probability"], label="Top predictions")
-        meta_out = gr.Textbox(label="Inference metadata", lines=10)
+        with gr.Row():
+            pred_out = gr.Textbox(label="Prediction", scale=1)
+            probs_out = gr.Dataframe(headers=["genre", "probability"], label="Top predictions", scale=2)
+            meta_out = gr.Textbox(label="Inference metadata", lines=10, scale=1)
 
         submit.click(
             fn=classify_audio,

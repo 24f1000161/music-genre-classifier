@@ -9,7 +9,12 @@ import torchaudio.transforms as T
 
 
 def load_waveform_mono(path: str, target_sr: int) -> torch.Tensor:
-    waveform, sr = torchaudio.load(path)
+    try:
+        waveform, sr = torchaudio.load(path, backend="soundfile")
+    except Exception:
+        # Fallback to default backend if soundfile is missing or fails
+        waveform, sr = torchaudio.load(path)
+
     if waveform.dim() != 2:
         raise ValueError(f"Unexpected waveform shape: {tuple(waveform.shape)}")
     waveform = waveform.mean(dim=0, keepdim=True)
