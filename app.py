@@ -258,16 +258,10 @@ def build_app() -> gr.Blocks:
 
             with gr.Row():
                 with gr.Column(elem_classes=["panel"], scale=7):
-                    audio_in = gr.File(
-                        label="Upload audio file",
-                        file_types=["audio"],
+                    audio_in = gr.Audio(
+                        sources=["upload"],
                         type="filepath",
-                    )
-                    audio_preview = gr.Audio(
-                        type="filepath",
-                        label="Audio preview",
-                        interactive=False,
-                        show_download_button=False,
+                        label="Upload audio",
                     )
                 with gr.Column(elem_classes=["panel"], scale=5):
                     top_k = gr.Slider(
@@ -306,14 +300,6 @@ def build_app() -> gr.Blocks:
             )
             meta_out = gr.Code(label="Inference metadata", language="json")
 
-            audio_in.change(
-                fn=lambda p: _normalize_audio_path(p) or None,
-                inputs=[audio_in],
-                outputs=[audio_preview],
-                api_name=False,
-                show_api=False,
-            )
-
             submit.click(
                 fn=classify_audio,
                 inputs=[audio_in, top_k, tta_passes],
@@ -325,7 +311,6 @@ def build_app() -> gr.Blocks:
             clear.click(
                 fn=lambda: (
                     None,
-                    None,
                     5,
                     10,
                     "",
@@ -335,7 +320,7 @@ def build_app() -> gr.Blocks:
                     _safe_metadata(),
                 ),
                 inputs=None,
-                outputs=[audio_in, audio_preview, top_k, tta_passes, pred_out, confidence_out, probs_out, chart_out, meta_out],
+                outputs=[audio_in, top_k, tta_passes, pred_out, confidence_out, probs_out, chart_out, meta_out],
                 api_name=False,
                 show_api=False,
             )
@@ -344,9 +329,6 @@ def build_app() -> gr.Blocks:
 
 
 demo = build_app()
-# Prevent runtime schema introspection regressions in Gradio 4.44.x startup.
-demo.api_info = {"named_endpoints": {}, "unnamed_endpoints": {}}
-demo.all_app_info = demo.api_info
 
 
 if __name__ == "__main__":
