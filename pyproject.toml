@@ -1,11 +1,10 @@
 [project]
-name = "music-genre-classifier-space"
+name = "music-genre-classifier"
 version = "0.1.0"
-description = "Hugging Face Space deployment for music genre classification"
+description = "Simple music genre classifier"
 requires-python = ">=3.10,<3.11"
 dependencies = [
   "gradio==4.44.1",
-  "huggingface_hub==0.25.2",
   "fastapi==0.112.2",
   "starlette==0.38.6",
   "numpy>=1.26.0",
